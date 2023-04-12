@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import json
 import os
+import subprocess
 import sys
 import time
-import subprocess
+import textwrap
 
 import openai
 from dotenv import load_dotenv
@@ -50,6 +51,13 @@ def bold(string: str):
     return f"\033[1m{string}\033[0m"
 
 
+def price_estimate():
+    unit_cost = \
+        0.002 if OPENAI_API_MODEL == "gpt-3.5-turbo" else 0.03 if OPENAI_API_MODEL == "gpt-4" else 0.06
+    price = (TOKEN_USAGE / 1000) * unit_cost
+    return f"{price}$"
+
+
 TOKEN_USAGE = 0
 VERIFICATIONS = 1
 
@@ -65,30 +73,28 @@ assert OPENAI_API_MODEL, "OPENAI_API_MODEL environment variable is missing from 
 assert len(sys.argv) == 2, "Provide target URL as parameter"
 URL = sys.argv[1]
 
-print("\033[96m\033[1m" + "\n*****Website Under Test*****\n" + "\033[0m\033[0m")
+print(f"\033[96m{bold('*****Website Under Test*****')}\033[0m")
 print(URL)
 
 while True:
     command = command_creation_agent()
 
-    print(f"\033[93m\033[1m" + f"\n*****Verification n.{VERIFICATIONS}*****" + "\033[0m\033[0m")
+    print(f"\033[93m\n{bold(f'*****Verification Nb.{VERIFICATIONS}*****')}\033[0m")
     print(f"Command: {bold(command.cmd)}")
     print(f"Explanation: {command.explanation}")
-
-    input("\nPress Enter to run the command...")
+    input("Press Enter to run the command...")
 
     print(f"Running command {bold(command.cmd)}")
     stream = subprocess.run(command.cmd, capture_output=True, shell=True)
     output = stream.stdout.decode("utf-8") + " " + stream.stderr.decode("utf-8")
     print(f"Results for {bold(command.cmd)}")
-    print(output[:50])
+    print(textwrap.shorten(output, width=100, placeholder="..."))
 
-    print("\033[93m\033[1m" + "\n*****Verification Result*****" + "\033[0m\033[0m")
+    print(f"\033[93m{bold('*****Verification Result*****')}\033[0m")
     assessment = command_evaluation_agent(output)
     print(assessment)
 
-    price = (TOKEN_USAGE / 1000) * 0.002
-    print(f"Total tokens used {bold(TOKEN_USAGE)}. Cost estimation: {bold(price)}$")
+    print(f"{bold('Summary')}: Total tokens used {str(TOKEN_USAGE)}. Cost estimation: {bold(price_estimate())}")
 
     time.sleep(10)
     VERIFICATIONS = VERIFICATIONS + 1
